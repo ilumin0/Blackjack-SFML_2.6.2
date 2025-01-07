@@ -48,21 +48,19 @@ void Game::run() {
                 currentState = State::DealerTurn;
                 clock.restart();
             }
-            else if (currentState == State::DealerTurn) {
-                if (clock.getElapsedTime().asSeconds() >= 1.0f) {
-                    if (!dealer.isDone()) {
-                        dealer.hit(deck);
-                    }
-                    else {
-                        currentState = State::Playing;
-                        gameOver = true;
-                        checkWinner();
-                    }
-                    clock.restart();
+        }
+
+        if (currentState == State::DealerTurn) {
+            if (clock.getElapsedTime().asSeconds() >= 1.0f) { // Odstêp czasowy 1 sekunda
+                if (!dealer.isDone()) {
+                    dealer.hit(deck);
                 }
-            }
-            else if (currentState == State::Settings) {
-                handleSettingsInput(event);
+                else {
+                    currentState = State::Playing;
+                    gameOver = true;
+                    checkWinner();
+                }
+                clock.restart();
             }
         }
 
