@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\Card.cpp" />
+    <ClCompile Include="src\Chips.cpp" />
     <ClCompile Include="src\Dealer.cpp" />
     <ClCompile Include="src\Deck.cpp" />
     <ClCompile Include="src\Game.cpp" />
@@ -33,6 +34,7 @@
   <ItemGroup>
     <ClInclude Include="include\AssetManager.h" />
     <ClInclude Include="include\Card.h" />
+    <ClInclude Include="include\Chips.h" />
     <ClInclude Include="include\Dealer.h" />
     <ClInclude Include="include\Deck.h" />
     <ClInclude Include="include\Game.h" />
