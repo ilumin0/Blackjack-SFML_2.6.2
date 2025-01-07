@@ -9,10 +9,14 @@ Game::Game()
     currentState(State::Menu),
     gameOver(false),
     result("") {
+    if (!backgroundTexture.loadFromFile("assets/backgrounds/game.png")) {
+        throw std::runtime_error("Failed to load game background texture.");
+    }
+    backgroundSprite.setTexture(backgroundTexture);
 }
 
 void Game::run() {
-    sf::Clock clock; // Zegar do zarz¹dzania odstêpami czasowymi
+    sf::Clock clock;
 
     while (window.isOpen()) {
         sf::Event event;
@@ -35,7 +39,7 @@ void Game::run() {
                         }
                     }
                     else if (event.key.code == sf::Keyboard::S) {
-                        currentState = State::RevealDealerCard; // Zmieniamy stan gry
+                        currentState = State::RevealDealerCard;
                     }
                 }
 
@@ -51,7 +55,7 @@ void Game::run() {
         }
 
         if (currentState == State::DealerTurn) {
-            if (clock.getElapsedTime().asSeconds() >= 1.0f) { // Odstêp czasowy 1 sekunda
+            if (clock.getElapsedTime().asSeconds() >= 1.0f) {
                 if (!dealer.isDone()) {
                     dealer.hit(deck);
                 }
@@ -64,7 +68,8 @@ void Game::run() {
             }
         }
 
-        window.clear(sf::Color::Green);
+        window.clear();
+        window.draw(backgroundSprite);
 
         if (currentState == State::Menu) {
             menu.draw(window);
