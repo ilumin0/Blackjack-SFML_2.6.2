@@ -1,5 +1,4 @@
 #include "Game.h"
-#include <locale>
 
 int main() {
     Game game;

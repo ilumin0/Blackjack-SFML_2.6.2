@@ -15,7 +15,7 @@ Game::Game()
         throw std::runtime_error("Failed to load game background texture.");
     }
     backgroundSprite.setTexture(backgroundTexture);
-    userMessage = "Place your bet: press 1, 5, 10, 25, or 100.";
+    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
 }
 
 void Game::run() {
@@ -33,7 +33,7 @@ void Game::run() {
             }
             else if (currentState == State::Playing) {
                 if (!betPlaced) {
-                    userMessage = "Place your bet: press 1, 5, 10, 25, or 100.";
+                    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
                     if (event.type == sf::Event::KeyPressed) {
                         if (event.key.code == sf::Keyboard::Num1) placeBet(1);
                         else if (event.key.code == sf::Keyboard::Num2) placeBet(5);
@@ -66,7 +66,7 @@ void Game::run() {
 
                 if (gameOver && event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
                     resetGame();
-                    userMessage = "Place your bet: press 1, 5, 10, 25, or 100.";
+                    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
                 }
             }
             else if (currentState == State::RevealDealerCard) {
@@ -184,7 +184,7 @@ void Game::resetGame() {
     currentBet = 0;
     betPlaced = false;
 
-    userMessage = "Place your bet: press 1, 5, 10, 25, or 100.";
+    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
 }
 
 void Game::placeBet(int amount) {
