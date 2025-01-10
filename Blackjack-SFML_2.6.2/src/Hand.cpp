@@ -35,6 +35,11 @@ bool Hand::isBusted() const {
     return getValue() > 21;
 }
 
+bool Hand::isBlackjack() const {
+    return cards.size() == 2 && getValue() == 21;
+}
+
+
 void Hand::draw(sf::RenderWindow& window, sf::Vector2f position) const {
     float offsetX = position.x;
     for (const auto& card : cards) {

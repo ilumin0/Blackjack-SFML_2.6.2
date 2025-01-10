@@ -16,6 +16,7 @@ public:
     int getValue() const;
     void clear();
     bool isBusted() const; // Sprawdza, czy wartoœæ kart przekracza 21
+    bool isBlackjack() const; // Sprawdza, czy rêka ma blackjacka
     void draw(sf::RenderWindow& window, sf::Vector2f position = { 300, 500 }) const; // Dodano domyœln¹ pozycjê
     const std::vector<Card>& getCards() const; // Zwraca wektor kart
 };

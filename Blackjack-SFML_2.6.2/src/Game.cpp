@@ -30,7 +30,10 @@ void Game::run() {
 
             if (currentState == State::Menu) {
                 handleMenuInput(event);
-            }
+			}
+			else if (currentState == State::Settings) {
+				handleSettingsInput(event);
+			}
             else if (currentState == State::Playing) {
                 if (!betPlaced) {
                     userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
@@ -46,6 +49,28 @@ void Game::run() {
                             player.hit(deck);
                             dealer.hit(deck);
                             dealer.hit(deck);
+
+                            // Sprawdzanie Blackjacka zaraz po rozdaniu
+                            if (player.isBlackjack() && dealer.isBlackjack()) {
+                                gameOver = true;
+                                result = "Draw! Both have Blackjack!";
+                                chips.addChips(currentBet);
+                                scoreManager.addDraw();
+                                userMessage = "Result: " + result + ". Press R to play again.";
+                            }
+                            else if (player.isBlackjack()) {
+                                gameOver = true;
+                                result = "You have Blackjack! You win!";
+                                chips.addChips(currentBet * 2.5); // Wygrana 3:2 dla Blackjacka
+                                scoreManager.addWin();
+                                userMessage = "Result: " + result + ". Press R to play again.";
+                            }
+                            else if (dealer.isBlackjack()) {
+                                gameOver = true;
+                                result = "Dealer has Blackjack! You lose!";
+                                scoreManager.addLoss();
+                                userMessage = "Result: " + result + ". Press R to play again.";
+                            }
                         }
                     }
                 }
