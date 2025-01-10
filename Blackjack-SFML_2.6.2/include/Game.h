@@ -36,6 +36,7 @@ private:
     void checkWinner();                        // Sprawdzanie wyniku gry
     void placeBet(int amount);                 // Funkcja obs³uguj¹ca zak³ady
 
+    bool doubleDown; // Flaga oznaczaj¹ca, ¿e gracz wybra³ Double Down
 public:
     Game();          // Konstruktor
     void run();      // Uruchomienie gry

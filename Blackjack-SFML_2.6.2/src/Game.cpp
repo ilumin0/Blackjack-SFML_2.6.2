@@ -10,7 +10,8 @@ Game::Game()
     gameOver(false),
     result(""),
     currentBet(0),
-    betPlaced(false) {
+    betPlaced(false), 
+    doubleDown(false){
     if (!backgroundTexture.loadFromFile("assets/backgrounds/game.png")) {
         throw std::runtime_error("Failed to load game background texture.");
     }
@@ -44,7 +45,6 @@ void Game::run() {
                         else if (event.key.code == sf::Keyboard::Num4) placeBet(25);
                         else if (event.key.code == sf::Keyboard::Num5) placeBet(100);
                         if (betPlaced) {
-                            userMessage = "Press H to hit or S to stand.";
                             player.hit(deck);
                             player.hit(deck);
                             dealer.hit(deck);
@@ -87,6 +87,26 @@ void Game::run() {
                         currentState = State::RevealDealerCard;
                         userMessage = "Dealer is finishing their turn...";
                     }
+                    else if (event.key.code == sf::Keyboard::D && !doubleDown && player.getCards().size() == 2) {
+                        if (chips.canBet(currentBet)) {
+                            chips.removeChips(currentBet);
+                            currentBet *= 2; // Podwojenie zak³adu
+                            player.hit(deck); // Gracz dobiera jedn¹ kartê
+                            doubleDown = true; // Ustawienie flagi
+                            if (player.isBusted()) {
+                                gameOver = true;
+                                userMessage = "You lost! Press R to restart.";
+                                scoreManager.addLoss();
+                            }
+                            else {
+                                currentState = State::RevealDealerCard; // Przechodzimy do tury krupiera
+                                userMessage = "Dealer is finishing their turn...";
+                            }
+                        }
+                        else {
+                            userMessage = "Not enough chips to Double Down!";
+                        }
+                    }
                 }
 
                 if (gameOver && event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
@@ -113,6 +133,22 @@ void Game::run() {
                     userMessage = "Result: " + result + ". Press R to play again.";
                 }
                 clock.restart();
+            }
+        }
+
+        // Ustawianie komunikatu w zale¿noœci od stanu gry
+        if (currentState == State::Playing) {
+            if (!betPlaced) {
+                userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
+            }
+            else if (!gameOver) {
+                userMessage = "Press H to Hit, S to Stand";
+                if (!doubleDown && player.getCards().size() == 2) {
+                    userMessage += ", or D to Double Down.";
+                }
+            }
+            else if (gameOver) {
+                userMessage = "Result: " + result + ". Press R to play again.";
             }
         }
 
@@ -208,6 +244,7 @@ void Game::resetGame() {
     result = "";
     currentBet = 0;
     betPlaced = false;
+    doubleDown = false;
 
     userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
 }
