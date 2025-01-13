@@ -31,10 +31,10 @@ void Game::run() {
 
             if (currentState == State::Menu) {
                 handleMenuInput(event);
-			}
-			else if (currentState == State::Settings) {
-				handleSettingsInput(event);
-			}
+            }
+            else if (currentState == State::Settings) {
+                handleSettingsInput(event);
+            }
             else if (currentState == State::Playing) {
                 if (!betPlaced) {
                     userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
@@ -60,7 +60,7 @@ void Game::run() {
                             }
                             else if (player.isBlackjack()) {
                                 gameOver = true;
-                                result = "You have Blackjack! You win!";
+                                result = "You have Blackjack! You won!";
                                 chips.addChips(currentBet * 2.5); // Wygrana 3:2 dla Blackjacka
                                 scoreManager.addWin();
                                 userMessage = "Result: " + result + ". Press R to play again.";
@@ -79,7 +79,8 @@ void Game::run() {
                         player.hit(deck);
                         if (player.isBusted()) {
                             gameOver = true;
-                            userMessage = "You lost! Press R to restart.";
+                            result = "You lost!";
+                            userMessage = "Result: " + result + ". Press R to restart.";
                             scoreManager.addLoss();
                         }
                     }
@@ -89,13 +90,14 @@ void Game::run() {
                     }
                     else if (event.key.code == sf::Keyboard::D && !doubleDown && player.getCards().size() == 2) {
                         if (chips.canBet(currentBet)) {
+                            doubleDown = true; // Ustawienie flagi
                             chips.removeChips(currentBet);
                             currentBet *= 2; // Podwojenie zak³adu
                             player.hit(deck); // Gracz dobiera jedn¹ kartê
-                            doubleDown = true; // Ustawienie flagi
                             if (player.isBusted()) {
                                 gameOver = true;
-                                userMessage = "You lost! Press R to restart.";
+                                result = "You lost!";
+                                userMessage = "Result: " + result + ". Press R to restart.";
                                 scoreManager.addLoss();
                             }
                             else {
