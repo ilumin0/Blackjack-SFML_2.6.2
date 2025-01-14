@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef MENU_H
 #define MENU_H
 
@@ -9,21 +7,32 @@
 
 class Menu {
 private:
-    sf::Texture backgroundTexture;      // Tekstura t³a menu
-    sf::Sprite backgroundSprite;        // Sprite t³a menu
-    sf::Font font;                      // Czcionka do wyœwietlania tekstu
-    std::vector<sf::Text> menuOptions;  // Opcje menu
-    int selectedIndex;                  // Aktualnie wybrana opcja
+    sf::Texture backgroundTexture;
+    sf::Sprite backgroundSprite;
+
+    sf::Texture settingsBackgroundTexture;
+    sf::Sprite settingsBackgroundSprite;
+
+    sf::Font font;
+    std::vector<sf::Text> menuOptions;
+    int selectedIndex;
 
 public:
     // Konstruktor
-    Menu(const std::string& backgroundPath, const std::string& fontPath, const std::vector<std::string>& options);
+    Menu(const std::string& menuBgPath,
+        const std::string& fontPath,
+        const std::vector<std::string>& options,
+        const std::string& settingsBgPath);
 
-    // Metody
-    void draw(sf::RenderWindow& window);   // Rysowanie menu
-    void moveUp();                         // Zmiana zaznaczenia w górê
-    void moveDown();                       // Zmiana zaznaczenia w dó³
-    int getSelectedOption() const;         // Pobranie aktualnie wybranej opcji
+    // Rysowanie g³ównego menu
+    void drawMainMenu(sf::RenderWindow& window);
+
+    // Rysowanie ekranu ustawieñ
+    void drawSettings(sf::RenderWindow& window, int numberOfPlayers);
+
+    void moveUp();
+    void moveDown();
+    int getSelectedOption() const;
 };
 
 #endif // MENU_H

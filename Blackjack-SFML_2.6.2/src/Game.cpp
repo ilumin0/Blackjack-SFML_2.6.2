@@ -5,14 +5,15 @@ Game::Game()
     : window(sf::VideoMode(1920, 1080), "Blackjack"),
     player("Player"),
     dealer(),
-    menu("assets/backgrounds/mainmenu.jpg", "assets/fonts/arial.ttf", { "Start Game", "Settings", "Exit" }),
+    menu("assets/backgrounds/mainmenu.png", "assets/fonts/arial.ttf",{ "Start Game", "Settings", "Exit" }, "assets/backgrounds/settings.png"),
     currentState(State::Menu),
     gameOver(false),
     result(""),
     currentBet(0),
     betPlaced(false), 
     doubleDown(false),
-    outOfChips(false){
+    outOfChips(false),
+    numberOfPlayers(1){
     if (!backgroundTexture.loadFromFile("assets/backgrounds/game.png")) {
         throw std::runtime_error("Failed to load game background texture.");
     }
@@ -82,9 +83,8 @@ void Game::run() {
                         if (player.isBusted()) {
                             gameOver = true;
                             result = "You lost!";
-                            checkWinner();
                             userMessage = "Result: " + result + ". Press R to restart.";
-                            scoreManager.addLoss();
+                            checkWinner();
                         }
                     }
                     else if (event.key.code == sf::Keyboard::S) {
@@ -100,9 +100,8 @@ void Game::run() {
                             if (player.isBusted()) {
                                 gameOver = true;
                                 result = "You lost!";
-                                checkWinner();
                                 userMessage = "Result: " + result + ". Press R to restart.";
-                                scoreManager.addLoss();
+                                checkWinner();
                             }
                             else {
                                 currentState = State::RevealDealerCard; // Przechodzimy do tury krupiera
@@ -133,7 +132,7 @@ void Game::run() {
             // Ustawiamy userMessage, ¿eby gracz wiedzia³ co siê sta³o
             userMessage = "You are out of chips! Press any key to exit.";
 
-            // Rysujemy jeszcze ostatni raz t³o, ewentualnie cokolwiek
+            // Rysujemy jeszcze ostatni raz t³o
             window.clear();
             window.draw(backgroundSprite);
 
@@ -175,8 +174,8 @@ void Game::run() {
                 else {
                     currentState = State::Playing;
                     gameOver = true;
-                    checkWinner();
                     userMessage = "Result: " + result + ". Press R to play again.";
+                    checkWinner();
                 }
                 clock.restart();
             }
@@ -201,8 +200,12 @@ void Game::run() {
         window.clear();
         window.draw(backgroundSprite);
 
+        // --- Rysowanie w zale¿noœci od stanu ---
         if (currentState == State::Menu) {
-            menu.draw(window);
+            menu.drawMainMenu(window);
+        }
+        else if (currentState == State::Settings) {
+            menu.drawSettings(window, numberOfPlayers);
         }
         else if (currentState == State::Playing || currentState == State::RevealDealerCard || currentState == State::DealerTurn) {
             player.drawHand(window);
@@ -310,11 +313,24 @@ void Game::placeBet(int amount) {
 
 void Game::handleSettingsInput(sf::Event& event) {
     if (event.type == sf::Event::KeyPressed) {
-        if (event.key.code == sf::Keyboard::Escape) {
+        if (event.key.code == sf::Keyboard::Up) {
+            if (numberOfPlayers < 4) {
+                numberOfPlayers++;
+            }
+        }
+        else if (event.key.code == sf::Keyboard::Down) {
+            if (numberOfPlayers > 1) {
+                numberOfPlayers--;
+            }
+        }
+        else if (event.key.code == sf::Keyboard::Escape) {
+            // Wracamy do menu g³ównego
             currentState = State::Menu;
         }
     }
 }
+
+
 
 void Game::handleMenuInput(sf::Event& event) {
     if (event.type == sf::Event::KeyPressed) {

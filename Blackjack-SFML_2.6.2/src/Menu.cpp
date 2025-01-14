@@ -1,41 +1,86 @@
 #include "Menu.h"
 #include <stdexcept>
 
-// Konstruktor
-Menu::Menu(const std::string& backgroundPath, const std::string& fontPath, const std::vector<std::string>& options)
-    : selectedIndex(0) {
-    // £adowanie tekstury t³a
-    if (!backgroundTexture.loadFromFile(backgroundPath)) {
-        throw std::runtime_error("Nie mo¿na za³adowaæ t³a: " + backgroundPath);
+Menu::Menu(const std::string& menuBgPath,
+    const std::string& fontPath,
+    const std::vector<std::string>& options,
+    const std::string& settingsBgPath)
+    : selectedIndex(0) // <-- lista inicjalizacyjna pól
+{
+    // 1. £adowanie t³a menu g³ównego
+    if (!backgroundTexture.loadFromFile(menuBgPath)) {
+        throw std::runtime_error("Nie mo¿na za³adowaæ t³a menu: " + menuBgPath);
     }
     backgroundSprite.setTexture(backgroundTexture);
 
-    // £adowanie czcionki
+    // 2. £adowanie t³a ekranu ustawieñ
+    if (!settingsBackgroundTexture.loadFromFile(settingsBgPath)) {
+        throw std::runtime_error("Nie mo¿na za³adowaæ t³a settings: " + settingsBgPath);
+    }
+    settingsBackgroundSprite.setTexture(settingsBackgroundTexture);
+
+    // 3. £adowanie czcionki
     if (!font.loadFromFile(fontPath)) {
         throw std::runtime_error("Nie mo¿na za³adowaæ czcionki: " + fontPath);
     }
 
-    // Tworzenie opcji menu
+    // 4. Tworzenie tekstów opcji menu g³ównego
     for (size_t i = 0; i < options.size(); ++i) {
         sf::Text text;
         text.setFont(font);
         text.setString(options[i]);
         text.setCharacterSize(50);
-        text.setFillColor(i == 0 ? sf::Color::Red : sf::Color::White); // Pierwsza opcja jest zaznaczona
-        text.setPosition(800, 400 + i * 80); // Pozycja opcji (pionowe odstêpy)
+
+        // Pierwsza opcja na czerwono, reszta bia³a
+        text.setFillColor(i == 0 ? sf::Color::Red : sf::Color::White);
+
+        // Pozycja (X=800, Y=400 + i*80)
+        text.setPosition(800.f, 400.f + static_cast<float>(i * 80));
         menuOptions.push_back(text);
     }
 }
 
-// Rysowanie menu
-void Menu::draw(sf::RenderWindow& window) {
-    window.draw(backgroundSprite); // Rysowanie t³a
-    for (const auto& option : menuOptions) {
-        window.draw(option); // Rysowanie opcji
+// ------------------------------------------------
+// Definicje pozosta³ych metod
+// ------------------------------------------------
+
+void Menu::drawMainMenu(sf::RenderWindow& window) {
+    // Rysujemy t³o menu g³ównego
+    window.draw(backgroundSprite);
+
+    // Rysujemy opcje menu
+    for (auto& option : menuOptions) {
+        window.draw(option);
     }
 }
 
-// Zmiana zaznaczenia w górê
+void Menu::drawSettings(sf::RenderWindow& window, int numberOfPlayers) {
+    // Rysujemy t³o ekranu ustawieñ
+    window.draw(settingsBackgroundSprite);
+
+    // Tytu³
+    sf::Text title("SETTINGS", font, 60);
+    title.setFillColor(sf::Color::White);
+    title.setStyle(sf::Text::Bold);
+    title.setPosition(700.f, 100.f);
+    window.draw(title);
+
+    // Tekst z liczb¹ graczy i instrukcjami
+    sf::Text settingsText;
+    settingsText.setFont(font);
+    settingsText.setCharacterSize(40);
+    settingsText.setFillColor(sf::Color::White);
+
+    std::string msg =
+        "Number of players: " + std::to_string(numberOfPlayers) + "\n\n"
+        "Press UP or DOWN to change\n"
+        "Press ESC to return to menu";
+
+    settingsText.setString(msg);
+    settingsText.setPosition(650.f, 300.f);
+    window.draw(settingsText);
+}
+
 void Menu::moveUp() {
     if (selectedIndex > 0) {
         menuOptions[selectedIndex].setFillColor(sf::Color::White);
@@ -44,7 +89,6 @@ void Menu::moveUp() {
     }
 }
 
-// Zmiana zaznaczenia w dó³
 void Menu::moveDown() {
     if (selectedIndex < static_cast<int>(menuOptions.size()) - 1) {
         menuOptions[selectedIndex].setFillColor(sf::Color::White);
@@ -53,7 +97,6 @@ void Menu::moveDown() {
     }
 }
 
-// Pobranie aktualnie wybranej opcji
 int Menu::getSelectedOption() const {
     return selectedIndex;
 }

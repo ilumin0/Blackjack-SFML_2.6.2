@@ -27,6 +27,7 @@ private:
     sf::Texture backgroundTexture;   // Tekstura t³a gry
     sf::Sprite backgroundSprite;     // Sprite t³a gry
 
+
     enum class State { Menu, Playing, RevealDealerCard, DealerTurn, Settings };
     State currentState;              // Aktualny stan gry
 
@@ -37,7 +38,9 @@ private:
     void placeBet(int amount);                 // Funkcja obs³uguj¹ca zak³ady
 
     bool doubleDown; // Flaga oznaczaj¹ca, ¿e gracz wybra³ Double Down
-    bool outOfChips;
+	bool outOfChips; // Flaga oznaczaj¹ca, ¿e gracz nie ma ju¿ ¿etonów
+
+	int numberOfPlayers; // Liczba graczy
 public:
     Game();          // Konstruktor
     void run();      // Uruchomienie gry
