@@ -10,10 +10,11 @@ private:
 
 public:
     Player(const std::string& name);
+
     void drawHand(sf::RenderWindow& window) const;
     bool isBusted() const;
-    int getHandValue() const; // Zwraca sumê punktów w rêce gracza
-    void reset();             // Resetuje rêkê gracza
+    int getHandValue() const;
+    void reset();
 };
 
 #endif // PLAYER_H

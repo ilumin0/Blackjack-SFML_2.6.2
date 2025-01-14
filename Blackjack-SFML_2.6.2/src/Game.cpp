@@ -5,20 +5,28 @@ Game::Game()
     : window(sf::VideoMode(1920, 1080), "Blackjack"),
     player("Player"),
     dealer(),
-    menu("assets/backgrounds/mainmenu.png", "assets/fonts/arial.ttf",{ "Start Game", "Settings", "Exit" }, "assets/backgrounds/settings.png"),
+    // [ZMIANA] Œcie¿ki do t³a, czcionki i menu przenosimy do param. Menu
+    menu("assets/backgrounds/mainmenu.png",
+        "assets/fonts/arial.ttf",
+        { "Start Game", "Settings", "Exit" },
+        "assets/backgrounds/settings.png"),
     currentState(State::Menu),
     gameOver(false),
     result(""),
     currentBet(0),
-    betPlaced(false), 
+    betPlaced(false),
     doubleDown(false),
     outOfChips(false),
-    numberOfPlayers(1){
-    if (!backgroundTexture.loadFromFile("assets/backgrounds/game.png")) {
-        throw std::runtime_error("Failed to load game background texture.");
-    }
-    backgroundSprite.setTexture(backgroundTexture);
+    numberOfPlayers(1)
+{
+    // [ZMIANA] T³o gry – pobieramy z AssetManager, przypisujemy do sprite'a
+    const sf::Texture& bgTexture = AssetManager::getInstance()->getTexture("assets/backgrounds/game.png");
+    backgroundSprite.setTexture(bgTexture);
+
     userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
+
+    // Mo¿na ewentualnie dokonaæ pre³adowania zasobów tutaj, jeœli chcemy
+    deck.shuffle();
 }
 
 void Game::run() {
@@ -46,13 +54,14 @@ void Game::run() {
                         else if (event.key.code == sf::Keyboard::Num3) placeBet(10);
                         else if (event.key.code == sf::Keyboard::Num4) placeBet(25);
                         else if (event.key.code == sf::Keyboard::Num5) placeBet(100);
+
                         if (betPlaced) {
                             player.hit(deck);
                             player.hit(deck);
                             dealer.hit(deck);
                             dealer.hit(deck);
 
-                            // Sprawdzanie Blackjacka zaraz po rozdaniu
+                            // Sprawdzenie Blackjacka
                             if (player.isBlackjack() && dealer.isBlackjack()) {
                                 gameOver = true;
                                 result = "Draw! Both have Blackjack!";
@@ -63,7 +72,7 @@ void Game::run() {
                             else if (player.isBlackjack()) {
                                 gameOver = true;
                                 result = "You have Blackjack! You won!";
-                                chips.addChips(currentBet * 2.5); // Wygrana 3:2 dla Blackjacka
+                                chips.addChips(static_cast<int>(currentBet * 2.5f));
                                 scoreManager.addWin();
                                 userMessage = "Result: " + result + ". Press R to play again.";
                             }
@@ -93,10 +102,10 @@ void Game::run() {
                     }
                     else if (event.key.code == sf::Keyboard::D && !doubleDown && player.getCards().size() == 2) {
                         if (chips.canBet(currentBet)) {
-                            doubleDown = true; // Ustawienie flagi
+                            doubleDown = true;
                             chips.removeChips(currentBet);
-                            currentBet *= 2; // Podwojenie zak³adu
-                            player.hit(deck); // Gracz dobiera jedn¹ kartê
+                            currentBet *= 2;
+                            player.hit(deck);
                             if (player.isBusted()) {
                                 gameOver = true;
                                 result = "You lost!";
@@ -104,7 +113,7 @@ void Game::run() {
                                 checkWinner();
                             }
                             else {
-                                currentState = State::RevealDealerCard; // Przechodzimy do tury krupiera
+                                currentState = State::RevealDealerCard;
                                 userMessage = "Dealer is finishing their turn...";
                             }
                         }
@@ -115,18 +124,14 @@ void Game::run() {
                 }
 
                 if (gameOver && event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
-                    // Dopiero teraz sprawdzamy, czy mamy ¿etony
                     if (chips.getTotalChips() <= 0) {
-                        // Nie ma ¿etonów - wyœwietlamy komunikat i przechodzimy np. do specjalnego stanu
                         outOfChips = true;
                     }
                     else {
-                        // S¹ ¿etony - resetujemy grê normalnie
                         resetGame();
                         userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
                     }
                 }
-
             }
             else if (currentState == State::RevealDealerCard) {
                 dealer.revealFirstCard();
@@ -135,39 +140,32 @@ void Game::run() {
             }
         }
 
-        // SPRAWDZENIE, CZY GRACZ MA ¯ETONY
-        // ----------------------------
+        // Obs³uga stanu, w którym gracz nie ma ¿etonów
         if (outOfChips) {
-            // Ustawiamy userMessage, ¿eby gracz wiedzia³ co siê sta³o
             userMessage = "You are out of chips! Press any key to exit.";
 
-            // Rysujemy jeszcze ostatni raz t³o
             window.clear();
             window.draw(backgroundSprite);
 
-            // Mo¿emy te¿ wyœwietliæ ten komunikat na ekranie:
-            sf::Font font;
-            if (font.loadFromFile("assets/fonts/arial.ttf")) {
-                sf::Text messageText(userMessage, font, 40);
-                messageText.setFillColor(sf::Color::Red);
-                messageText.setPosition(500, 500);
-                window.draw(messageText);
-            }
+            // [ZMIANA] Czcionka z AssetManager
+            const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
+            sf::Text messageText(userMessage, font, 40);
+            messageText.setFillColor(sf::Color::Red);
+            messageText.setPosition(500, 500);
+            window.draw(messageText);
+
             window.display();
 
-            // Czekamy na naciœniêcie dowolnego klawisza
             bool waitingForKeyPress = true;
+            sf::Event e;
             while (waitingForKeyPress) {
-                while (window.pollEvent(event)) {
-                    // Jeœli klikniêto "close" w oknie
-                    if (event.type == sf::Event::Closed) {
+                while (window.pollEvent(e)) {
+                    if (e.type == sf::Event::Closed) {
                         window.close();
-                        return; // Koñczymy run()
+                        return;
                     }
-                    // Jeœli naciœniêto dowolny klawisz
-                    if (event.type == sf::Event::KeyPressed ||
-                        event.type == sf::Event::MouseButtonPressed) {
-                        // Zamykamy okno i koñczymy grê
+                    if (e.type == sf::Event::KeyPressed ||
+                        e.type == sf::Event::MouseButtonPressed) {
                         window.close();
                         return;
                     }
@@ -190,7 +188,6 @@ void Game::run() {
             }
         }
 
-        // Ustawianie komunikatu w zale¿noœci od stanu gry
         if (currentState == State::Playing) {
             if (!betPlaced) {
                 userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
@@ -201,7 +198,7 @@ void Game::run() {
                     userMessage += ", or D to Double Down.";
                 }
             }
-            else if (gameOver) {
+            else {
                 userMessage = "Result: " + result + ". Press R to play again.";
             }
         }
@@ -209,14 +206,16 @@ void Game::run() {
         window.clear();
         window.draw(backgroundSprite);
 
-        // --- Rysowanie w zale¿noœci od stanu ---
         if (currentState == State::Menu) {
             menu.drawMainMenu(window);
         }
         else if (currentState == State::Settings) {
             menu.drawSettings(window, numberOfPlayers);
         }
-        else if (currentState == State::Playing || currentState == State::RevealDealerCard || currentState == State::DealerTurn) {
+        else if (currentState == State::Playing ||
+            currentState == State::RevealDealerCard ||
+            currentState == State::DealerTurn)
+        {
             player.drawHand(window);
             chips.draw(window);
 
@@ -239,23 +238,22 @@ void Game::run() {
                 dealerXOffset += 150.0f;
             }
 
-            sf::Font font;
-            if (font.loadFromFile("assets/fonts/arial.ttf")) {
-                sf::Text scoreText(scoreManager.getScoreString(), font, 30);
-                scoreText.setFillColor(sf::Color::White);
-                scoreText.setPosition(10, 10);
-                window.draw(scoreText);
+            const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
 
-                sf::Text betText("Bet: " + std::to_string(currentBet), font, 30);
-                betText.setFillColor(sf::Color::White);
-                betText.setPosition(1500, 10);
-                window.draw(betText);
+            sf::Text scoreText(scoreManager.getScoreString(), font, 30);
+            scoreText.setFillColor(sf::Color::White);
+            scoreText.setPosition(10, 10);
+            window.draw(scoreText);
 
-                sf::Text messageText(userMessage, font, 30);
-                messageText.setFillColor(sf::Color::Yellow);
-                messageText.setPosition(10, 50);
-                window.draw(messageText);
-            }
+            sf::Text betText("Bet: " + std::to_string(currentBet), font, 30);
+            betText.setFillColor(sf::Color::White);
+            betText.setPosition(1500, 10);
+            window.draw(betText);
+
+            sf::Text messageText(userMessage, font, 30);
+            messageText.setFillColor(sf::Color::Yellow);
+            messageText.setPosition(10, 50);
+            window.draw(messageText);
         }
 
         window.display();
@@ -328,13 +326,10 @@ void Game::handleSettingsInput(sf::Event& event) {
             }
         }
         else if (event.key.code == sf::Keyboard::Escape) {
-            // Wracamy do menu g³ównego
             currentState = State::Menu;
         }
     }
 }
-
-
 
 void Game::handleMenuInput(sf::Event& event) {
     if (event.type == sf::Event::KeyPressed) {
@@ -348,13 +343,10 @@ void Game::handleMenuInput(sf::Event& event) {
             int selectedOption = menu.getSelectedOption();
             if (selectedOption == 0) {
                 currentState = State::Playing;
-
-                // Nowe rozdanie ¿etonów
                 chips = Chips();
                 outOfChips = false;
                 scoreManager.reset();
-
-                resetGame(); // Resztê stanu gry zresetuj
+                resetGame();
             }
             else if (selectedOption == 1) {
                 currentState = State::Settings;

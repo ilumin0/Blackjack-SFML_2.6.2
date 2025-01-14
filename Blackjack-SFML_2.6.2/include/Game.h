@@ -11,39 +11,39 @@
 
 class Game {
 private:
-    sf::RenderWindow window;         // Okno gry
-    Deck deck;                       // Talia kart
-    Player player;                   // Gracz
-    Dealer dealer;                   // Krupier
-    Menu menu;                       // Menu g³ówne
-    ScoreManager scoreManager;       // Mened¿er wyników
-    Chips chips;                     // Klasa obs³uguj¹ca ¿etony
-    int currentBet;                  // Obecny zak³ad
-    bool betPlaced;                  // Czy zak³ad zosta³ postawiony
-    bool gameOver;                   // Czy gra jest zakoñczona
-    std::string result;              // Wynik gry
-    std::string userMessage;         // Komunikat dla gracza
+    sf::RenderWindow window;
+    Deck deck;
+    Player player;
+    Dealer dealer;
+    Menu menu;
+    ScoreManager scoreManager;
+    Chips chips;
+    int currentBet;
+    bool betPlaced;
+    bool gameOver;
+    std::string result;
+    std::string userMessage;
 
-    sf::Texture backgroundTexture;   // Tekstura t³a gry
-    sf::Sprite backgroundSprite;     // Sprite t³a gry
-
+    // [ZMIANA] Usuwamy prywatn¹ sf::Texture backgroundTexture i dajemy tylko sprite
+    sf::Sprite backgroundSprite;
 
     enum class State { Menu, Playing, RevealDealerCard, DealerTurn, Settings };
-    State currentState;              // Aktualny stan gry
+    State currentState;
 
-    void handleMenuInput(sf::Event& event);    // Obs³uga wejœcia w menu
-    void handleSettingsInput(sf::Event& event); // Obs³uga wejœcia w ustawieniach
-    void resetGame();                          // Resetowanie gry
-    void checkWinner();                        // Sprawdzanie wyniku gry
-    void placeBet(int amount);                 // Funkcja obs³uguj¹ca zak³ady
+    void handleMenuInput(sf::Event& event);
+    void handleSettingsInput(sf::Event& event);
+    void resetGame();
+    void checkWinner();
+    void placeBet(int amount);
 
-    bool doubleDown; // Flaga oznaczaj¹ca, ¿e gracz wybra³ Double Down
-	bool outOfChips; // Flaga oznaczaj¹ca, ¿e gracz nie ma ju¿ ¿etonów
+    bool doubleDown;
+    bool outOfChips;
 
-	int numberOfPlayers; // Liczba graczy
+    int numberOfPlayers;
+
 public:
-    Game();          // Konstruktor
-    void run();      // Uruchomienie gry
+    Game();
+    void run();
 };
 
 #endif // GAME_H

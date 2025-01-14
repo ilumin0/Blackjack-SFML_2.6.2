@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <random>
 #include <ctime>
+#include <stdexcept>
 
 Deck::Deck() {
     for (int suit = 0; suit < 4; ++suit) {
@@ -12,7 +13,8 @@ Deck::Deck() {
 }
 
 void Deck::shuffle() {
-    std::shuffle(cards.begin(), cards.end(), std::default_random_engine(static_cast<unsigned>(std::time(nullptr))));
+    std::shuffle(cards.begin(), cards.end(),
+        std::default_random_engine(static_cast<unsigned>(std::time(nullptr))));
 }
 
 Card Deck::dealCard() {

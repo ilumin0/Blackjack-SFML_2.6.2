@@ -7,27 +7,23 @@
 
 class Menu {
 private:
-    sf::Texture backgroundTexture;
+    // T³o g³ówne i t³o ustawieñ
     sf::Sprite backgroundSprite;
-
-    sf::Texture settingsBackgroundTexture;
     sf::Sprite settingsBackgroundSprite;
 
-    sf::Font font;
+    // Opcje menu (ka¿da to sf::Text)
     std::vector<sf::Text> menuOptions;
+
+    // Indeks aktualnie wybranej opcji
     int selectedIndex;
 
 public:
-    // Konstruktor
     Menu(const std::string& menuBgPath,
         const std::string& fontPath,
         const std::vector<std::string>& options,
         const std::string& settingsBgPath);
 
-    // Rysowanie g³ównego menu
     void drawMainMenu(sf::RenderWindow& window);
-
-    // Rysowanie ekranu ustawieñ
     void drawSettings(sf::RenderWindow& window, int numberOfPlayers);
 
     void moveUp();

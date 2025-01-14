@@ -5,19 +5,19 @@ Card::Card(Suit suit, Rank rank) : suit(suit), rank(rank), revealed(false) {}
 
 int Card::getValue() const {
     switch (rank) {
-    case Rank::Two: return 2;
-    case Rank::Three: return 3;
-    case Rank::Four: return 4;
-    case Rank::Five: return 5;
-    case Rank::Six: return 6;
-    case Rank::Seven: return 7;
-    case Rank::Eight: return 8;
-    case Rank::Nine: return 9;
-    case Rank::Ten: return 10;
-    case Rank::Jack: return 10;
-    case Rank::Queen: return 10;
-    case Rank::King: return 10;
-    case Rank::Ace: return 11;
+    case Rank::Two:    return 2;
+    case Rank::Three:  return 3;
+    case Rank::Four:   return 4;
+    case Rank::Five:   return 5;
+    case Rank::Six:    return 6;
+    case Rank::Seven:  return 7;
+    case Rank::Eight:  return 8;
+    case Rank::Nine:   return 9;
+    case Rank::Ten:
+    case Rank::Jack:
+    case Rank::Queen:
+    case Rank::King:   return 10;
+    case Rank::Ace:    return 11;
     }
     return 0;
 }
@@ -51,29 +51,29 @@ void Card::draw(sf::RenderWindow& window, sf::Vector2f position) const {
 
 std::string Card::getSuitString() const {
     switch (suit) {
-    case Suit::Clubs: return "clubs";
+    case Suit::Clubs:    return "clubs";
     case Suit::Diamonds: return "diamonds";
-    case Suit::Hearts: return "hearts";
-    case Suit::Spades: return "spades";
+    case Suit::Hearts:   return "hearts";
+    case Suit::Spades:   return "spades";
     }
     return "";
 }
 
 std::string Card::getRankString() const {
     switch (rank) {
-    case Rank::Two: return "2";
+    case Rank::Two:   return "2";
     case Rank::Three: return "3";
-    case Rank::Four: return "4";
-    case Rank::Five: return "5";
-    case Rank::Six: return "6";
+    case Rank::Four:  return "4";
+    case Rank::Five:  return "5";
+    case Rank::Six:   return "6";
     case Rank::Seven: return "7";
     case Rank::Eight: return "8";
-    case Rank::Nine: return "9";
-    case Rank::Ten: return "10";
-    case Rank::Jack: return "jack";
+    case Rank::Nine:  return "9";
+    case Rank::Ten:   return "10";
+    case Rank::Jack:  return "jack";
     case Rank::Queen: return "queen";
-    case Rank::King: return "king";
-    case Rank::Ace: return "ace";
+    case Rank::King:  return "king";
+    case Rank::Ace:   return "ace";
     }
     return "";
 }

@@ -3,13 +3,13 @@
 Dealer::Dealer() : Hand() {}
 
 void Dealer::playTurn(Deck& deck) {
-    while (getValue() < 17) { // Krupier dobiera karty, jeœli ma mniej ni¿ 17 punktów
+    while (getValue() < 17) {
         hit(deck);
     }
 }
 
 bool Dealer::isDone() const {
-    return getValue() >= 17; // Krupier koñczy, gdy ma 17 lub wiêcej punktów
+    return getValue() >= 17;
 }
 
 void Dealer::revealFirstCard() {
@@ -19,13 +19,13 @@ void Dealer::revealFirstCard() {
 }
 
 void Dealer::reset() {
-    cards.clear(); // Czyœci karty w rêce
+    cards.clear();
 }
 
 int Dealer::getHandValue() const {
-    return getValue(); // U¿ywamy metody z klasy `Hand`
+    return getValue();
 }
 
 const std::vector<Card>& Dealer::getHand() const {
-    return cards; // Zwracamy karty w rêce
+    return cards;
 }

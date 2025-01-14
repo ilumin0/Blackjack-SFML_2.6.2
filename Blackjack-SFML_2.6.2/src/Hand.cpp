@@ -23,7 +23,6 @@ int Hand::getValue() const {
         value -= 10;
         --aces;
     }
-
     return value;
 }
 
@@ -36,15 +35,14 @@ bool Hand::isBusted() const {
 }
 
 bool Hand::isBlackjack() const {
-    return cards.size() == 2 && getValue() == 21;
+    return (cards.size() == 2 && getValue() == 21);
 }
-
 
 void Hand::draw(sf::RenderWindow& window, sf::Vector2f position) const {
     float offsetX = position.x;
     for (const auto& card : cards) {
         card.draw(window, { offsetX, position.y });
-        offsetX += 150.0f; // Odstêp miêdzy kartami
+        offsetX += 150.0f;
     }
 }
 

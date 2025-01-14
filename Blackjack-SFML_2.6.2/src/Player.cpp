@@ -1,19 +1,23 @@
 #include "Player.h"
 
-Player::Player(const std::string& name) : name(name) {}
+Player::Player(const std::string& name)
+    : name(name)
+{
+}
 
 void Player::drawHand(sf::RenderWindow& window) const {
-    draw(window); // Rysujemy karty gracza z domyœln¹ pozycj¹
+    // Karty z domyœln¹ pozycj¹ (300,500)
+    draw(window);
 }
 
 bool Player::isBusted() const {
-    return getValue() > 21; // U¿ycie metody z klasy `Hand`
+    return getValue() > 21;
 }
 
 int Player::getHandValue() const {
-    return getValue(); // U¿ywamy metody `getValue` z klasy `Hand`
+    return getValue();
 }
 
 void Player::reset() {
-    clear(); // Czyœci karty w rêce gracza
+    clear();
 }
