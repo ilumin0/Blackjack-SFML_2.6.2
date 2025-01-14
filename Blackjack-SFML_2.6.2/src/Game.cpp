@@ -11,7 +11,8 @@ Game::Game()
     result(""),
     currentBet(0),
     betPlaced(false), 
-    doubleDown(false){
+    doubleDown(false),
+    outOfChips(false){
     if (!backgroundTexture.loadFromFile("assets/backgrounds/game.png")) {
         throw std::runtime_error("Failed to load game background texture.");
     }
@@ -68,6 +69,7 @@ void Game::run() {
                             else if (dealer.isBlackjack()) {
                                 gameOver = true;
                                 result = "Dealer has Blackjack! You lose!";
+                                checkWinner();
                                 scoreManager.addLoss();
                                 userMessage = "Result: " + result + ". Press R to play again.";
                             }
@@ -80,6 +82,7 @@ void Game::run() {
                         if (player.isBusted()) {
                             gameOver = true;
                             result = "You lost!";
+                            checkWinner();
                             userMessage = "Result: " + result + ". Press R to restart.";
                             scoreManager.addLoss();
                         }
@@ -97,6 +100,7 @@ void Game::run() {
                             if (player.isBusted()) {
                                 gameOver = true;
                                 result = "You lost!";
+                                checkWinner();
                                 userMessage = "Result: " + result + ". Press R to restart.";
                                 scoreManager.addLoss();
                             }
@@ -120,6 +124,46 @@ void Game::run() {
                 dealer.revealFirstCard();
                 currentState = State::DealerTurn;
                 clock.restart();
+            }
+        }
+
+        // SPRAWDZENIE, CZY GRACZ MA ¯ETONY
+        // ----------------------------
+        if (outOfChips) {
+            // Ustawiamy userMessage, ¿eby gracz wiedzia³ co siê sta³o
+            userMessage = "You are out of chips! Press any key to exit.";
+
+            // Rysujemy jeszcze ostatni raz t³o, ewentualnie cokolwiek
+            window.clear();
+            window.draw(backgroundSprite);
+
+            // Mo¿emy te¿ wyœwietliæ ten komunikat na ekranie:
+            sf::Font font;
+            if (font.loadFromFile("assets/fonts/arial.ttf")) {
+                sf::Text messageText(userMessage, font, 40);
+                messageText.setFillColor(sf::Color::Red);
+                messageText.setPosition(500, 500);
+                window.draw(messageText);
+            }
+            window.display();
+
+            // Czekamy na naciœniêcie dowolnego klawisza
+            bool waitingForKeyPress = true;
+            while (waitingForKeyPress) {
+                while (window.pollEvent(event)) {
+                    // Jeœli klikniêto "close" w oknie
+                    if (event.type == sf::Event::Closed) {
+                        window.close();
+                        return; // Koñczymy run()
+                    }
+                    // Jeœli naciœniêto dowolny klawisz
+                    if (event.type == sf::Event::KeyPressed ||
+                        event.type == sf::Event::MouseButtonPressed) {
+                        // Zamykamy okno i koñczymy grê
+                        window.close();
+                        return;
+                    }
+                }
             }
         }
 
@@ -233,6 +277,11 @@ void Game::checkWinner() {
         chips.addChips(currentBet);
         scoreManager.addDraw();
     }
+    // --- SPRAWDZAMY, CZY GRACZ MA ZERO ¯ETONÓW ---
+    if (chips.getTotalChips() <= 0) {
+        outOfChips = true;
+        result = "You have no more chips!";
+    }
 }
 
 void Game::resetGame() {
@@ -279,7 +328,13 @@ void Game::handleMenuInput(sf::Event& event) {
             int selectedOption = menu.getSelectedOption();
             if (selectedOption == 0) {
                 currentState = State::Playing;
-                resetGame();
+
+                // Nowe rozdanie ¿etonów
+                chips = Chips();
+                outOfChips = false;
+                scoreManager.reset();
+
+                resetGame(); // Resztê stanu gry zresetuj
             }
             else if (selectedOption == 1) {
                 currentState = State::Settings;
