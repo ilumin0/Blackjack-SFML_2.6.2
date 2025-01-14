@@ -115,9 +115,18 @@ void Game::run() {
                 }
 
                 if (gameOver && event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
-                    resetGame();
-                    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
+                    // Dopiero teraz sprawdzamy, czy mamy ¿etony
+                    if (chips.getTotalChips() <= 0) {
+                        // Nie ma ¿etonów - wyœwietlamy komunikat i przechodzimy np. do specjalnego stanu
+                        outOfChips = true;
+                    }
+                    else {
+                        // S¹ ¿etony - resetujemy grê normalnie
+                        resetGame();
+                        userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
+                    }
                 }
+
             }
             else if (currentState == State::RevealDealerCard) {
                 dealer.revealFirstCard();
@@ -279,11 +288,6 @@ void Game::checkWinner() {
         result = "Draw!";
         chips.addChips(currentBet);
         scoreManager.addDraw();
-    }
-    // --- SPRAWDZAMY, CZY GRACZ MA ZERO ¯ETONÓW ---
-    if (chips.getTotalChips() <= 0) {
-        outOfChips = true;
-        result = "You have no more chips!";
     }
 }
 
