@@ -1,11 +1,12 @@
-#include "Game.h"
+﻿#include "Game.h"
 #include "AssetManager.h"
+#include <stdexcept>
+#include <sstream>
+#include <algorithm> // std::remove_if
 
 Game::Game()
     : window(sf::VideoMode(1920, 1080), "Blackjack"),
-    player("Player"),
     dealer(),
-    // [ZMIANA] �cie�ki do t�a, czcionki i menu przenosimy do param. Menu
     menu("assets/backgrounds/mainmenu.png",
         "assets/fonts/arial.ttf",
         { "Start Game", "Settings", "Exit" },
@@ -13,19 +14,16 @@ Game::Game()
     currentState(State::Menu),
     gameOver(false),
     result(""),
-    currentBet(0),
-    betPlaced(false),
-    doubleDown(false),
-    outOfChips(false),
-    numberOfPlayers(1)
+    numberOfPlayers(1),
+    currentBettingPlayerIndex(0),
+    allBetsPlaced(false),
+    currentPlayerIndex(0)
 {
-    // [ZMIANA] T�o gry � pobieramy z AssetManager, przypisujemy do sprite'a
+    // Ładujemy tło
     const sf::Texture& bgTexture = AssetManager::getInstance()->getTexture("assets/backgrounds/game.png");
     backgroundSprite.setTexture(bgTexture);
 
-    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
-
-    // Mo�na ewentualnie dokona� pre�adowania zasob�w tutaj, je�li chcemy
+    userMessage = "Place your bet.";
     deck.shuffle();
 }
 
@@ -39,277 +37,489 @@ void Game::run() {
                 window.close();
             }
 
-            if (currentState == State::Menu) {
+            switch (currentState) {
+            case State::Menu:
                 handleMenuInput(event);
-            }
-            else if (currentState == State::Settings) {
+                break;
+
+            case State::Settings:
                 handleSettingsInput(event);
-            }
-            else if (currentState == State::Playing) {
-                if (!betPlaced) {
-                    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
+                break;
+
+            case State::Playing:
+                // 1) Faza obstawiania
+                if (!allBetsPlaced) {
                     if (event.type == sf::Event::KeyPressed) {
                         if (event.key.code == sf::Keyboard::Num1) placeBet(1);
                         else if (event.key.code == sf::Keyboard::Num2) placeBet(5);
                         else if (event.key.code == sf::Keyboard::Num3) placeBet(10);
                         else if (event.key.code == sf::Keyboard::Num4) placeBet(25);
                         else if (event.key.code == sf::Keyboard::Num5) placeBet(100);
-
-                        if (betPlaced) {
-                            player.hit(deck);
-                            player.hit(deck);
-                            dealer.hit(deck);
-                            dealer.hit(deck);
-
-                            // Sprawdzenie Blackjacka
-                            if (player.isBlackjack() && dealer.isBlackjack()) {
-                                gameOver = true;
-                                result = "Draw! Both have Blackjack!";
-                                chips.addChips(currentBet);
-                                scoreManager.addDraw();
-                                userMessage = "Result: " + result + ". Press R to play again.";
-                            }
-                            else if (player.isBlackjack()) {
-                                gameOver = true;
-                                result = "You have Blackjack! You won!";
-                                chips.addChips(static_cast<int>(currentBet * 2.5f));
-                                scoreManager.addWin();
-                                userMessage = "Result: " + result + ". Press R to play again.";
-                            }
-                            else if (dealer.isBlackjack()) {
-                                gameOver = true;
-                                result = "Dealer has Blackjack! You lose!";
-                                checkWinner();
-                                scoreManager.addLoss();
-                                userMessage = "Result: " + result + ". Press R to play again.";
-                            }
-                        }
                     }
                 }
-                else if (!gameOver && event.type == sf::Event::KeyPressed) {
-                    if (event.key.code == sf::Keyboard::H) {
-                        player.hit(deck);
-                        if (player.isBusted()) {
-                            gameOver = true;
-                            result = "You lost!";
-                            userMessage = "Result: " + result + ". Press R to restart.";
-                            checkWinner();
+                else {
+                    // 2) Faza grania (Hit/Stand/DoubleDown)
+                    if (!gameOver && event.type == sf::Event::KeyPressed) {
+                        PlayerInfo& pInfo = players[currentPlayerIndex];
+                        Player& currentPlayer = pInfo.player;
+
+                        if (event.key.code == sf::Keyboard::H) {
+                            currentPlayer.hit(deck);
+                            if (currentPlayer.isBusted()) {
+                                nextPlayer();
+                            }
                         }
-                    }
-                    else if (event.key.code == sf::Keyboard::S) {
-                        currentState = State::RevealDealerCard;
-                        userMessage = "Dealer is finishing their turn...";
-                    }
-                    else if (event.key.code == sf::Keyboard::D && !doubleDown && player.getCards().size() == 2) {
-                        if (chips.canBet(currentBet)) {
-                            doubleDown = true;
-                            chips.removeChips(currentBet);
-                            currentBet *= 2;
-                            player.hit(deck);
-                            if (player.isBusted()) {
-                                gameOver = true;
-                                result = "You lost!";
-                                userMessage = "Result: " + result + ". Press R to restart.";
-                                checkWinner();
+                        else if (event.key.code == sf::Keyboard::S) {
+                            nextPlayer();
+                        }
+                        else if (event.key.code == sf::Keyboard::D
+                            && !pInfo.doubleDown
+                            && currentPlayer.getCards().size() == 2)
+                        {
+                            // DoubleDown dla TEGO gracza
+                            int bet = pInfo.currentBet;
+                            if (pInfo.chips.canBet(bet)) {
+                                pInfo.doubleDown = true;
+                                pInfo.chips.removeChips(bet);
+                                pInfo.currentBet *= 2;
+                                currentPlayer.hit(deck);
+
+                                if (currentPlayer.isBusted()) {
+                                    nextPlayer();
+                                }
+                                else {
+                                    nextPlayer();
+                                }
                             }
                             else {
-                                currentState = State::RevealDealerCard;
-                                userMessage = "Dealer is finishing their turn...";
+                                userMessage = "Player " + std::to_string(currentPlayerIndex + 1)
+                                    + ": not enough chips for DoubleDown!";
                             }
                         }
+                    }
+
+                    // Restart rundy (tylko jeśli gameOver)
+                    if (gameOver && event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
+                        // Sprawdzamy, czy w ogóle został jakiś gracz
+                        if (players.empty()) {
+                            // Jeśli nie ma żadnego gracza w wektorze => koniec gry
+                            // Wyświetlamy komunikat i czekamy na klawisz
+                            // (możesz wstawić okno albo to, co wolisz)
+                            window.close();
+                        }
                         else {
-                            userMessage = "Not enough chips to Double Down!";
+                            resetGame();
                         }
                     }
                 }
+                break;
 
-                if (gameOver && event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
-                    if (chips.getTotalChips() <= 0) {
-                        outOfChips = true;
-                    }
-                    else {
-                        resetGame();
-                        userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
-                    }
-                }
-            }
-            else if (currentState == State::RevealDealerCard) {
+            case State::RevealDealerCard:
+                userMessage = "Revealing dealer's first card...";
                 dealer.revealFirstCard();
                 currentState = State::DealerTurn;
                 clock.restart();
+                break;
+
+            case State::DealerTurn:
+
+                // Tura krupiera - poniżej w pętli
+                break;
             }
         }
 
-        // Obs�uga stanu, w kt�rym gracz nie ma �eton�w
-        if (outOfChips) {
-            userMessage = "You are out of chips! Press any key to exit.";
-
-            window.clear();
-            window.draw(backgroundSprite);
-
-            // [ZMIANA] Czcionka z AssetManager
-            const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
-            sf::Text messageText(userMessage, font, 40);
-            messageText.setFillColor(sf::Color::Red);
-            messageText.setPosition(500, 500);
-            window.draw(messageText);
-
-            window.display();
-
-            bool waitingForKeyPress = true;
-            sf::Event e;
-            while (waitingForKeyPress) {
-                while (window.pollEvent(e)) {
-                    if (e.type == sf::Event::Closed) {
-                        window.close();
-                        return;
-                    }
-                    if (e.type == sf::Event::KeyPressed ||
-                        e.type == sf::Event::MouseButtonPressed) {
-                        window.close();
-                        return;
-                    }
-                }
-            }
-        }
-
+        // =========== TURA KRUPIERA ===============
         if (currentState == State::DealerTurn) {
             if (clock.getElapsedTime().asSeconds() >= 1.0f) {
+                userMessage = "Dealer's turn. Please wait...";
                 if (!dealer.isDone()) {
                     dealer.hit(deck);
                 }
                 else {
+                    // Koniec tury krupiera => sprawdź zwycięzców
                     currentState = State::Playing;
                     gameOver = true;
-                    userMessage = "Result: " + result + ". Press R to play again.";
-                    checkWinner();
+                    checkWinners();
+                    userMessage = result + "  Press R to continue.";
                 }
                 clock.restart();
             }
         }
 
-        if (currentState == State::Playing) {
-            if (!betPlaced) {
-                userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
-            }
-            else if (!gameOver) {
-                userMessage = "Press H to Hit, S to Stand";
-                if (!doubleDown && player.getCards().size() == 2) {
-                    userMessage += ", or D to Double Down.";
-                }
-            }
-            else {
-                userMessage = "Result: " + result + ". Press R to play again.";
+        // =========== Gdy allBetsPlaced i nie gameOver, sprawdzamy, czy gracze skończyli ===============
+        if (currentState == State::Playing && allBetsPlaced && !gameOver) {
+            if (allPlayersDone()) {
+                currentState = State::RevealDealerCard;
             }
         }
 
+        // =========== Aktualizowanie userMessage w zależności od stanu ===============
+        if (currentState == State::Playing) {
+            if (!allBetsPlaced) {
+                userMessage = "Player " + std::to_string(currentBettingPlayerIndex + 1)
+                    + ", place your bet [1,2,3,4,5].";
+            }
+            else if (!gameOver) {
+                userMessage = "Player " + std::to_string(currentPlayerIndex + 1) + " turn: [H]it, [S]tand";
+                // Jeśli gracz nie doubleDown i ma 2 karty => D
+                if (!players[currentPlayerIndex].doubleDown
+                    && players[currentPlayerIndex].player.getCards().size() == 2)
+                {
+                    userMessage += ", [D]oubleDown";
+                }
+            }
+        }
+
+        // =========== RENDEROWANIE ===============
+        // =============================
         window.clear();
         window.draw(backgroundSprite);
 
+        // Obsługa menu i ustawień (bez zmian):
         if (currentState == State::Menu) {
             menu.drawMainMenu(window);
         }
         else if (currentState == State::Settings) {
             menu.drawSettings(window, numberOfPlayers);
         }
-        else if (currentState == State::Playing ||
-            currentState == State::RevealDealerCard ||
-            currentState == State::DealerTurn)
-        {
-            player.drawHand(window);
-            chips.draw(window);
+        else {
+            // ---------------------------------------
+            // 1. STAŁE DOTYCZĄCE WYŚWIETLANIA KART
+            // ---------------------------------------
+            // Oryginalne karty: 500×726, skala 0.22 => ~110×160 px
 
-            float dealerXOffset = 300.0f;
-            for (size_t i = 0; i < dealer.getHand().size(); ++i) {
-                sf::Sprite cardSprite;
-                if (!gameOver && i == 0 && currentState != State::RevealDealerCard && currentState != State::DealerTurn) {
-                    const sf::Texture& reverseTexture = AssetManager::getInstance()->getTexture("assets/cards/reverse.png");
-                    cardSprite.setTexture(reverseTexture);
+            const float cardScale = 0.22f;
+            // Dealer (krupier)
+            const float dealerStartX = 200.f;  // <-- ZMIANA: taki sam X jak gracze
+            const float dealerStartY = 110.f;  // odpowiednio wyżej, by nie nachodził na komunikaty
+            const float dealerCardSpacing = 130.f;  // odstęp między kartami krupiera
+
+            // Gracze w siatce 2 (kolumny) × 2 (wiersze)
+            const float playerBaseY = 300.f;  // <-- ZMIANA: wyżej niż poprzednio, by nie ucinało kart
+            const float rowSpacing = 300.f;  // <-- ZMIANA: mniejszy odstęp między wierszami
+            const float colSpacing = 700.f;
+            const float firstColX = 200.f;  // taki sam X co dealerStartX
+            const float playerCardSpacing = 130.f;  // odstęp między kartami graczy
+
+            // ============================
+            // 2. RYSOWANIE KRUPIERA
+            // ============================
+            {
+                float dealerXOffset = dealerStartX;
+                for (size_t i = 0; i < dealer.getHand().size(); ++i) {
+                    // Obsługa karty zakrytej / odkrytej
+                    const sf::Texture& reverseTexture =
+                        AssetManager::getInstance()->getTexture("assets/cards/reverse.png");
+                    const sf::Texture& cardTexture =
+                        AssetManager::getInstance()->getTexture(
+                            "assets/cards/" + dealer.getHand()[i].getRankString() +
+                            "_of_" + dealer.getHand()[i].getSuitString() + ".png"
+                        );
+
+                    sf::Sprite cardSprite;
+                    if (!gameOver && i == 0 &&
+                        currentState != State::RevealDealerCard &&
+                        currentState != State::DealerTurn)
+                    {
+                        // Pierwsza karta krupiera zakryta
+                        cardSprite.setTexture(reverseTexture);
+                    }
+                    else {
+                        cardSprite.setTexture(cardTexture);
+                    }
+
+                    cardSprite.setScale(cardScale, cardScale);
+                    cardSprite.setPosition(dealerXOffset, dealerStartY);
+
+                    window.draw(cardSprite);
+                    dealerXOffset += dealerCardSpacing;
                 }
-                else {
-                    const sf::Texture& cardTexture = AssetManager::getInstance()->getTexture(
-                        "assets/cards/" + dealer.getHand()[i].getRankString() + "_of_" + dealer.getHand()[i].getSuitString() + ".png"
-                    );
-                    cardSprite.setTexture(cardTexture);
-                }
-                cardSprite.setPosition(dealerXOffset, 100);
-                cardSprite.setScale(0.3f, 0.3f);
-                window.draw(cardSprite);
-                dealerXOffset += 150.0f;
             }
 
-            const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
+            // =========================
+            // 3. RYSOWANIE GRACZY (2x2)
+            // =========================
+            for (int i = 0; i < static_cast<int>(players.size()); ++i) {
+                // Wyznaczamy wiersz i kolumnę
+                int row = i / 2;  // 0 lub 1
+                int col = i % 2;  // 0 lub 1
 
-            sf::Text scoreText(scoreManager.getScoreString(), font, 30);
-            scoreText.setFillColor(sf::Color::White);
-            scoreText.setPosition(10, 10);
-            window.draw(scoreText);
+                // Bazowy punkt (x, y) dla gracza i
+                float baseX = firstColX + col * colSpacing;
+                float baseY = playerBaseY + row * rowSpacing;
 
-            sf::Text betText("Bet: " + std::to_string(currentBet), font, 30);
-            betText.setFillColor(sf::Color::White);
-            betText.setPosition(1500, 10);
-            window.draw(betText);
+                // *** Układ informacji o graczu:
+                //    [Player i+1] po lewej, a obok [Bet / Chips] "w drugiej kolumnie"
 
-            sf::Text messageText(userMessage, font, 30);
-            messageText.setFillColor(sf::Color::Yellow);
-            messageText.setPosition(10, 50);
-            window.draw(messageText);
+                const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
+
+                // Pozycje napisów
+                float nameX = baseX;         // lewa "kolumna"
+                float infoX = baseX + 180.f; // prawa "kolumna"
+                float nameY = baseY;         // "Player i+1"
+                float betY = baseY;         // Bet tuż obok w tej samej linii
+                float chipsY = baseY + 30.f;  // Chips poniżej Bet
+
+                // Gdzie zaczną się karty tego gracza (nieco niżej):
+                float cardsY = baseY + 80.f; // żeby nie nachodziły na napis "Chips"
+
+                // 3.1 Rysowanie nazwy gracza
+                sf::Text nameText("Player " + std::to_string(i + 1), font, 25);
+                nameText.setFillColor(sf::Color::Cyan);
+                nameText.setPosition(nameX, nameY);
+                window.draw(nameText);
+
+                // 3.2 Bet
+                sf::Text betText("Bet: " + std::to_string(players[i].currentBet), font, 20);
+                betText.setFillColor(sf::Color::White);
+                betText.setPosition(infoX, betY);
+                window.draw(betText);
+
+                // 3.3 Chips
+                sf::Text chipsText("Chips: " + std::to_string(players[i].chips.getTotalChips()), font, 20);
+                chipsText.setFillColor(sf::Color::Yellow);
+                chipsText.setPosition(infoX, chipsY);
+                window.draw(chipsText);
+
+                // 3.4 Karty gracza
+                float offsetX = baseX;
+                for (auto& card : players[i].player.getCards()) {
+                    const sf::Texture& cardTexture =
+                        AssetManager::getInstance()->getTexture(
+                            "assets/cards/" + card.getRankString() +
+                            "_of_" + card.getSuitString() + ".png"
+                        );
+                    sf::Sprite sprite(cardTexture);
+
+                    sprite.setScale(cardScale, cardScale);
+                    sprite.setPosition(offsetX, cardsY);
+                    window.draw(sprite);
+
+                    // Przesuwamy się w prawo o szerokość karty (~110 px) + zapas
+                    offsetX += playerCardSpacing;
+                }
+            }
+
+            // ===============================
+            // 4. ScoreManager i userMessage
+            // ===============================
+            {
+                sf::Text scoreText(
+                    scoreManager.getScoreString(),
+                    AssetManager::getInstance()->getFont("assets/fonts/arial.ttf"),
+                    30
+                );
+                scoreText.setFillColor(sf::Color::White);
+                scoreText.setPosition(10.f, 10.f);
+                window.draw(scoreText);
+
+                sf::Text messageText(
+                    userMessage,
+                    AssetManager::getInstance()->getFont("assets/fonts/arial.ttf"),
+                    30
+                );
+                messageText.setFillColor(sf::Color::Yellow);
+                messageText.setPosition(10.f, 50.f);
+                window.draw(messageText);
+            }
         }
 
         window.display();
+
+
+
     }
 }
 
-void Game::checkWinner() {
-    int playerValue = player.getHandValue();
-    int dealerValue = dealer.getHandValue();
+// ==========================================
+// ============= Metody prywatne ===========
+// ==========================================
 
-    if (playerValue > 21) {
-        result = "You lost!";
-        scoreManager.addLoss();
-    }
-    else if (dealerValue > 21) {
-        result = "You won!";
-        chips.addChips(currentBet * 2);
-        scoreManager.addWin();
-    }
-    else if (playerValue > dealerValue) {
-        result = "You won!";
-        chips.addChips(currentBet * 2);
-        scoreManager.addWin();
-    }
-    else if (playerValue < dealerValue) {
-        result = "You lost!";
-        scoreManager.addLoss();
-    }
-    else {
-        result = "Draw!";
-        chips.addChips(currentBet);
-        scoreManager.addDraw();
-    }
-}
-
+// Reset całej gry / nowej rundy
 void Game::resetGame() {
+    // Tworzymy nową talię
     deck = Deck();
     deck.shuffle();
 
-    player.reset();
+    // Czyścimy rękę krupiera
     dealer.reset();
 
-    gameOver = false;
-    result = "";
-    currentBet = 0;
-    betPlaced = false;
-    doubleDown = false;
+    // Czyścimy (tylko) karty i zakłady graczy:
+    for (auto& pInfo : players) {
+        pInfo.player.reset();       // czyści karty
+        pInfo.currentBet = 0;
+        pInfo.doubleDown = false;
+        // pInfo.chips pozostaje bez zmian
+    }
 
-    userMessage = "Place your bet: press 1, 2, 3, 4, or 5.";
+    gameOver = false;
+    result.clear();
+    allBetsPlaced = false;
+    currentBettingPlayerIndex = 0;
+    currentPlayerIndex = 0;
+
+    userMessage = "Player 1, place your bet.";
 }
 
+
+
 void Game::placeBet(int amount) {
-    if (!betPlaced && chips.canBet(amount)) {
-        currentBet = amount;
-        chips.removeChips(amount);
-        betPlaced = true;
+    if (currentBettingPlayerIndex >= (int)players.size()) {
+        return; // Safety
+    }
+    PlayerInfo& pInfo = players[currentBettingPlayerIndex];
+    // Gracz stawia zakład
+    if (pInfo.chips.canBet(amount)) {
+        pInfo.chips.removeChips(amount);
+        pInfo.currentBet = amount;
+        pInfo.doubleDown = false; // reset doubleDown
+
+        currentBettingPlayerIndex++;
+        if (currentBettingPlayerIndex >= (int)players.size()) {
+            allBetsPlaced = true;
+            userMessage = "All bets placed. Dealing cards...";
+            dealInitialCards();
+        }
+        else {
+            userMessage = "Player " + std::to_string(currentBettingPlayerIndex + 1)
+                + ", place your bet [1,2,3,4,5].";
+        }
+    }
+    else {
+        userMessage = "Player " + std::to_string(currentBettingPlayerIndex + 1)
+            + ": Not enough chips to place that bet!";
+    }
+}
+
+// Rozdajemy karty każdemu + krupierowi
+void Game::dealInitialCards() {
+    for (auto& pInfo : players) {
+        pInfo.player.hit(deck);
+        pInfo.player.hit(deck);
+    }
+    dealer.hit(deck);
+    dealer.hit(deck);
+
+    userMessage = "Player 1 turn: [H]it, [S]tand, [D]oubleDown.";
+}
+
+// Czy wszyscy gracze skończyli turę (Stand/Bust)?
+bool Game::allPlayersDone() const {
+    return (currentPlayerIndex >= (int)players.size());
+}
+
+// Przechodzimy do kolejnego gracza
+void Game::nextPlayer() {
+    currentPlayerIndex++;
+}
+
+// Sprawdzamy zwycięzców
+void Game::checkWinners() {
+    int dealerValue = dealer.getHandValue();
+    bool dealerBust = (dealerValue > 21);
+
+    std::vector<int> winners, losers, draws;
+
+    for (int i = 0; i < (int)players.size(); ++i) {
+        auto& pInfo = players[i];
+        int pValue = pInfo.player.getHandValue();
+
+        if (pInfo.player.isBusted()) {
+            losers.push_back(i + 1);
+            scoreManager.addLoss();
+        }
+        else if (dealerBust) {
+            pInfo.chips.addChips(pInfo.currentBet * 2);
+            winners.push_back(i + 1);
+            scoreManager.addWin();
+        }
+        else {
+            if (pValue > dealerValue) {
+                pInfo.chips.addChips(pInfo.currentBet * 2);
+                winners.push_back(i + 1);
+                scoreManager.addWin();
+            }
+            else if (pValue < dealerValue) {
+                losers.push_back(i + 1);
+                scoreManager.addLoss();
+            }
+            else {
+                pInfo.chips.addChips(pInfo.currentBet);
+                draws.push_back(i + 1);
+                scoreManager.addDraw();
+            }
+        }
+    }
+
+    // Komunikat zbiorczy, np. "Won: Player 1; Draw: Player 2; Lose: Player 3"
+    std::ostringstream oss;
+    if (!winners.empty()) {
+        oss << "Won: ";
+        for (size_t j = 0; j < winners.size(); ++j) {
+            oss << "Player " << winners[j];
+            if (j + 1 < winners.size()) oss << ", ";
+        }
+        oss << "; ";
+    }
+    if (!draws.empty()) {
+        oss << "Draw: ";
+        for (size_t j = 0; j < draws.size(); ++j) {
+            oss << "Player " << draws[j];
+            if (j + 1 < draws.size()) oss << ", ";
+        }
+        oss << "; ";
+    }
+    if (!losers.empty()) {
+        oss << "Lose: ";
+        for (size_t j = 0; j < losers.size(); ++j) {
+            oss << "Player " << losers[j];
+            if (j + 1 < losers.size()) oss << ", ";
+        }
+    }
+    result = oss.str();
+
+    // Usuwamy graczy z 0 żetonów
+    auto it = std::remove_if(players.begin(), players.end(), [](PlayerInfo& p) {
+        return p.chips.getTotalChips() <= 0;
+        });
+    players.erase(it, players.end());
+
+    // Jeżeli wszyscy gracze odpadli => pusta lista => koniec
+    if (players.empty()) {
+        // gameOver = true (i tak jest) 
+        // w run() -> "Press R to continue" -> gracze = 0 => ok
+    }
+}
+
+// =============================
+// =       Menu/Settings       =
+// =============================
+void Game::handleMenuInput(sf::Event& event) {
+    if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::Up) {
+            menu.moveUp();
+        }
+        else if (event.key.code == sf::Keyboard::Down) {
+            menu.moveDown();
+        }
+        else if (event.key.code == sf::Keyboard::Enter) {
+            int selectedOption = menu.getSelectedOption();
+            
+            if (selectedOption == 0) {
+            // "Start Game"
+            scoreManager.reset();   // zeruj statystyki
+            initPlayers();          // tworzymy graczy od nowa z 100 chips
+            resetGame();            // czyścimy karty i zaczynamy rozdanie
+            currentState = State::Playing;
+            }
+
+            else if (selectedOption == 1) {
+                currentState = State::Settings;
+            }
+            else if (selectedOption == 2) {
+                window.close();
+            }
+        }
     }
 }
 
@@ -331,29 +541,12 @@ void Game::handleSettingsInput(sf::Event& event) {
     }
 }
 
-void Game::handleMenuInput(sf::Event& event) {
-    if (event.type == sf::Event::KeyPressed) {
-        if (event.key.code == sf::Keyboard::Up) {
-            menu.moveUp();
-        }
-        else if (event.key.code == sf::Keyboard::Down) {
-            menu.moveDown();
-        }
-        else if (event.key.code == sf::Keyboard::Enter) {
-            int selectedOption = menu.getSelectedOption();
-            if (selectedOption == 0) {
-                currentState = State::Playing;
-                chips = Chips();
-                outOfChips = false;
-                scoreManager.reset();
-                resetGame();
-            }
-            else if (selectedOption == 1) {
-                currentState = State::Settings;
-            }
-            else if (selectedOption == 2) {
-                window.close();
-            }
-        }
+void Game::initPlayers() {
+    // Gdy zaczynamy NOWĄ grę, wypełniamy wektor od zera.
+    players.clear();
+    for (int i = 0; i < numberOfPlayers; ++i) {
+        // PlayerInfo konstruktor ustawia chips=100
+        players.emplace_back("Player " + std::to_string(i + 1));
     }
 }
+

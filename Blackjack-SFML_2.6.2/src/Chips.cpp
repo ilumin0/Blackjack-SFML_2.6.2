@@ -5,7 +5,6 @@ Chips::Chips() : totalChips(100) { // Gracz zaczyna ze 100 ¿etonami
     chipDenominations = { 1, 5, 10, 25, 100 };
 
     for (int denom : chipDenominations) {
-        // [ZMIANA] Pobieramy teksturê z AssetManager
         const sf::Texture& texture = AssetManager::getInstance()->getTexture(
             "assets/chips/" + std::to_string(denom) + ".png"
         );
