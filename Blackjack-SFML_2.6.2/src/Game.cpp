@@ -293,6 +293,15 @@ void Game::run() {
                 chipsText.setPosition(infoX, chipsY);
                 window.draw(chipsText);
 
+                // NOWE: Points
+                float pointsX = infoX + 125.f; // tu można dostosować
+                float pointsY = betY+ 15.f;          // np. rysujemy w tej samej linii co Bet
+                int pointsVal = players[i].player.getHandValue();
+                sf::Text pointsText("Points: " + std::to_string(pointsVal), font, 20);
+                pointsText.setFillColor(sf::Color::Yellow);
+                pointsText.setPosition(pointsX, pointsY);
+                window.draw(pointsText);
+
                 // 3.4 Karty gracza
                 float offsetX = baseX;
                 for (auto& card : players[i].player.getCards()) {
