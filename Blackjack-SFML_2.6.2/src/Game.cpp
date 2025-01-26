@@ -17,7 +17,9 @@ Game::Game()
     numberOfPlayers(1),
     currentBettingPlayerIndex(0),
     allBetsPlaced(false),
-    currentPlayerIndex(0)
+    currentPlayerIndex(0),
+    currentNamingPlayerIndex(0),
+    currentNameInput("")
 {
     // Ładujemy tło
     const sf::Texture& bgTexture = AssetManager::getInstance()->getTexture("assets/backgrounds/game.png");
@@ -44,6 +46,10 @@ void Game::run() {
 
             case State::Settings:
                 handleSettingsInput(event);
+                break;
+            
+            case State::EnterNames:
+                handleEnterNamesInput(event);
                 break;
 
             case State::Playing:
@@ -92,7 +98,7 @@ void Game::run() {
                                 }
                             }
                             else {
-                                userMessage = "Player " + std::to_string(currentPlayerIndex + 1)
+                                userMessage = players[currentPlayerIndex].name
                                     + ": not enough chips for DoubleDown!";
                             }
                         }
@@ -147,28 +153,31 @@ void Game::run() {
         }
 
         // =========== Gdy allBetsPlaced i nie gameOver, sprawdzamy, czy gracze skończyli ===============
-        if (currentState == State::Playing && allBetsPlaced && !gameOver) {
-            if (allPlayersDone()) {
-                currentState = State::RevealDealerCard;
-            }
-        }
-
-        // =========== Aktualizowanie userMessage w zależności od stanu ===============
         if (currentState == State::Playing) {
+            // 1) Faza obstawiania
             if (!allBetsPlaced) {
-                userMessage = "Player " + std::to_string(currentBettingPlayerIndex + 1)
-                    + ", place your bet [1,2,3,4,5].";
+                if (currentBettingPlayerIndex < (int)players.size()) {
+                    userMessage = players[currentBettingPlayerIndex].name
+                        + ", place your bet [1,2,3,4,5].";
+                }
             }
-            else if (!gameOver) {
-                userMessage = "Player " + std::to_string(currentPlayerIndex + 1) + " turn: [H]it, [S]tand";
-                // Jeśli gracz nie doubleDown i ma 2 karty => D
-                if (!players[currentPlayerIndex].doubleDown
-                    && players[currentPlayerIndex].player.getCards().size() == 2)
-                {
-                    userMessage += ", [D]oubleDown";
+            else {
+                // 2) Faza grania (Hit/Stand/DoubleDown)
+                if (!gameOver) {
+                    if (currentPlayerIndex < (int)players.size()) {
+                        userMessage = players[currentPlayerIndex].name
+                            + " turn: [H]it, [S]tand";
+
+                        if (!players[currentPlayerIndex].doubleDown
+                            && players[currentPlayerIndex].player.getCards().size() == 2)
+                        {
+                            userMessage += ", [D]oubleDown";
+                        }
+                    }
                 }
             }
         }
+
 
         // =========== RENDEROWANIE ===============
         // =============================
@@ -178,6 +187,9 @@ void Game::run() {
         // Obsługa menu i ustawień (bez zmian):
         if (currentState == State::Menu) {
             menu.drawMainMenu(window);
+        }
+        else if (currentState == State::EnterNames) {
+            drawEnterNames(window);
         }
         else if (currentState == State::Settings) {
             menu.drawSettings(window, numberOfPlayers);
@@ -264,7 +276,7 @@ void Game::run() {
                 float cardsY = baseY + 80.f; // żeby nie nachodziły na napis "Chips"
 
                 // 3.1 Rysowanie nazwy gracza
-                sf::Text nameText("Player " + std::to_string(i + 1), font, 25);
+                sf::Text nameText(players[i].name, font, 25);
                 nameText.setFillColor(sf::Color::Cyan);
                 nameText.setPosition(nameX, nameY);
                 window.draw(nameText);
@@ -358,7 +370,14 @@ void Game::resetGame() {
     currentBettingPlayerIndex = 0;
     currentPlayerIndex = 0;
 
-    userMessage = "Player 1, place your bet.";
+    if (!players.empty()) {
+        // Bierzemy nazwę pierwszego gracza (indeks 0) 
+        userMessage = players[0].name + ", place your bet.";
+    }
+    else {
+        // Jeśli z jakiegoś powodu lista graczy jest pusta, na razie ustaw komunikat pusty
+        userMessage = "";
+    }
 }
 
 
@@ -381,12 +400,12 @@ void Game::placeBet(int amount) {
             dealInitialCards();
         }
         else {
-            userMessage = "Player " + std::to_string(currentBettingPlayerIndex + 1)
+            userMessage = players[currentBettingPlayerIndex].name
                 + ", place your bet [1,2,3,4,5].";
         }
     }
     else {
-        userMessage = "Player " + std::to_string(currentBettingPlayerIndex + 1)
+        userMessage = players[currentBettingPlayerIndex].name
             + ": Not enough chips to place that bet!";
     }
 }
@@ -400,7 +419,14 @@ void Game::dealInitialCards() {
     dealer.hit(deck);
     dealer.hit(deck);
 
-    userMessage = "Player 1 turn: [H]it, [S]tand, [D]oubleDown.";
+    if (!players.empty()) {
+        // Bierzemy nazwę pierwszego gracza (indeks 0) 
+        userMessage = players[0].name + ", [H]it, [S]tand, [D]oubleDown.";
+    }
+    else {
+        // Jeśli z jakiegoś powodu lista graczy jest pusta, na razie ustaw komunikat pusty
+        userMessage = "";
+    }
 }
 
 // Czy wszyscy gracze skończyli turę (Stand/Bust)?
@@ -504,13 +530,18 @@ void Game::handleMenuInput(sf::Event& event) {
         }
         else if (event.key.code == sf::Keyboard::Enter) {
             int selectedOption = menu.getSelectedOption();
-            
-            if (selectedOption == 0) {
-            // "Start Game"
-            scoreManager.reset();   // zeruj statystyki
-            initPlayers();          // tworzymy graczy od nowa z 100 chips
-            resetGame();            // czyścimy karty i zaczynamy rozdanie
-            currentState = State::Playing;
+
+            if (selectedOption == 0) { // "Start Game"
+                scoreManager.reset();
+
+                initPlayers();          // tworzy wektor players, np. z domyślnymi "Player 1", "Player 2", ...
+                resetGame();            // czyści karty, ustawia stany startowe
+
+                // Przygotowujemy się do wpisywania nazw
+                currentNamingPlayerIndex = 0;
+                currentNameInput.clear();
+
+                currentState = State::EnterNames;
             }
 
             else if (selectedOption == 1) {
@@ -550,3 +581,90 @@ void Game::initPlayers() {
     }
 }
 
+void Game::handleEnterNamesInput(sf::Event& event) {
+    // Interesuje nas event.type == sf::Event::TextEntered (dla zwykłych znaków)
+    // i event.type == sf::Event::KeyPressed (dla Enter, Backspace, itp.)
+
+    if (event.type == sf::Event::TextEntered) {
+        // Konwertujemy do "unsigned char"
+        unsigned char typedChar = static_cast<unsigned char>(event.text.unicode);
+
+        if (typedChar == 8) {
+            // BACKSPACE
+            if (!currentNameInput.empty()) {
+                currentNameInput.pop_back();
+            }
+        }
+        else if (typedChar >= 32 && typedChar < 127) {
+            // Zwykły znak ASCII (spacje, litery, cyfry)
+            currentNameInput.push_back(static_cast<char>(typedChar));
+        }
+        // ignORujemy inne kody (Enter, itp.)
+    }
+    else if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::Enter) {
+            // Zatwierdzamy wpisaną nazwę dla bieżącego gracza
+            if (currentNamingPlayerIndex < (int)players.size()) {
+                players[currentNamingPlayerIndex].name = currentNameInput;
+                // W razie potrzeby można też ustawić: 
+                // players[currentNamingPlayerIndex].player.setName(currentNameInput);
+
+                currentNameInput.clear(); // czyścimy bufor
+                currentNamingPlayerIndex++;
+
+                // Jeśli obsłużyliśmy ostatniego gracza, przechodzimy do normalnej rozgrywki
+                if (currentNamingPlayerIndex >= (int)players.size()) {
+                    // Mamy nazwy wszystkich -> start gry
+                    currentState = State::Playing;
+                    // Ewentualnie: userMessage = "Player 1, place your bet.";
+                }
+            }
+        }
+        else if (event.key.code == sf::Keyboard::Escape) {
+            // Można np. przerwać i wrócić do menu
+            currentState = State::Menu;
+        }
+    }
+}
+
+void Game::drawEnterNames(sf::RenderWindow& window) {
+    // Możesz narysować tło
+    // window.draw(backgroundSprite);
+
+    const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
+
+    // Tytuł
+    sf::Text title("ENTER PLAYERS' NAMES", font, 50);
+    title.setFillColor(sf::Color::White);
+    title.setPosition(450.f, 100.f);
+    window.draw(title);
+
+    // Komunikat, który gracz wpisuje nazwę
+    if (currentNamingPlayerIndex < (int)players.size()) {
+        std::string prompt = "Player " + std::to_string(currentNamingPlayerIndex + 1)
+            + " - type your name and press [Enter]:";
+        sf::Text promptText(prompt, font, 30);
+        promptText.setFillColor(sf::Color::Yellow);
+        promptText.setPosition(300.f, 300.f);
+        window.draw(promptText);
+
+        // Wyświetlamy to, co aktualnie wpisano
+        sf::Text inputText(currentNameInput, font, 30);
+        inputText.setFillColor(sf::Color::Cyan);
+        inputText.setPosition(300.f, 350.f);
+        window.draw(inputText);
+
+        // Dodatkowa instrukcja
+        sf::Text info("[Backspace] to edit, [ESC] to cancel", font, 20);
+        info.setFillColor(sf::Color::White);
+        info.setPosition(300.f, 400.f);
+        window.draw(info);
+    }
+    else {
+        // Wszyscy gracze podali nazwę - np. krótkie info
+        sf::Text done("All names entered! Press Enter to start...", font, 30);
+        done.setFillColor(sf::Color::Green);
+        done.setPosition(300.f, 350.f);
+        window.draw(done);
+    }
+}

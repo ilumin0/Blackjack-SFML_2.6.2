@@ -24,9 +24,14 @@ struct PlayerInfo {
     Chips chips;
     int currentBet;
     bool doubleDown;
+    std::string name;
 
-    PlayerInfo(const std::string& name)
-        : player(name), chips(), currentBet(0), doubleDown(false)
+    PlayerInfo(const std::string& defaultName)
+        : player(defaultName), // wewnêtrznie klasa Player te¿ ma name, ale mo¿emy to zostawiæ
+        chips(),
+        currentBet(0),
+        doubleDown(false),
+        name(defaultName)   // <-- przypisujemy domyœln¹ nazwê
     {
     }
 };
@@ -48,7 +53,7 @@ private:
     std::string result;
     std::string userMessage;
 
-    enum class State { Menu, Playing, RevealDealerCard, DealerTurn, Settings };
+    enum class State { Menu, EnterNames, Playing, RevealDealerCard, DealerTurn, Settings };
     State currentState;
 
     // Liczba graczy ustalana w Settings
@@ -60,6 +65,11 @@ private:
 
     // Faza grania (kto ma turê Hit/Stand/DoubleDown)
     int currentPlayerIndex;
+
+    // Zmienne potrzebne do wprowadzania nazw graczy:
+    int currentNamingPlayerIndex;    // Który gracz aktualnie wpisuje
+    std::string currentNameInput;    // Bufor wpisywanego tekstu
+
 
     // =========================
     // =  Metody pomocnicze   =
@@ -77,6 +87,11 @@ private:
     void dealInitialCards();   // Rozdajemy karty
 
     void initPlayers();
+
+    void handleEnterNamesInput(sf::Event& event);
+    void drawEnterNames(sf::RenderWindow& window);
+
+
 
 public:
     Game();
