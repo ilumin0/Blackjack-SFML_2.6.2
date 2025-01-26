@@ -437,7 +437,12 @@ bool Game::allPlayersDone() const {
 // Przechodzimy do kolejnego gracza
 void Game::nextPlayer() {
     currentPlayerIndex++;
+    if (currentPlayerIndex >= players.size()) {
+        // Wszyscy gracze skończyli => przejście do tury krupiera
+        currentState = State::RevealDealerCard;
+    }
 }
+
 
 // Sprawdzamy zwycięzców
 void Game::checkWinners() {
@@ -446,43 +451,35 @@ void Game::checkWinners() {
 
     std::vector<int> winners, losers, draws;
 
-    for (int i = 0; i < (int)players.size(); ++i) {
-        auto& pInfo = players[i];
-        int pValue = pInfo.player.getHandValue();
+    // Najpierw zbieramy zero-bazowe indeksy
+    for (int i = 0; i < (int)players.size(); i++) {
+        int pValue = players[i].player.getHandValue();
 
-        if (pInfo.player.isBusted()) {
-            losers.push_back(i + 1);
-            scoreManager.addLoss();
+        if (players[i].player.isBusted()) {
+            losers.push_back(i);
         }
         else if (dealerBust) {
-            pInfo.chips.addChips(pInfo.currentBet * 2);
-            winners.push_back(i + 1);
-            scoreManager.addWin();
+            winners.push_back(i);
         }
         else {
             if (pValue > dealerValue) {
-                pInfo.chips.addChips(pInfo.currentBet * 2);
-                winners.push_back(i + 1);
-                scoreManager.addWin();
+                winners.push_back(i);
             }
             else if (pValue < dealerValue) {
-                losers.push_back(i + 1);
-                scoreManager.addLoss();
+                losers.push_back(i);
             }
             else {
-                pInfo.chips.addChips(pInfo.currentBet);
-                draws.push_back(i + 1);
-                scoreManager.addDraw();
+                draws.push_back(i);
             }
         }
     }
 
-    // Komunikat zbiorczy, np. "Won: Player 1; Draw: Player 2; Lose: Player 3"
+    // Teraz budujemy komunikat, odwołując się do players[i].name
     std::ostringstream oss;
     if (!winners.empty()) {
         oss << "Won: ";
         for (size_t j = 0; j < winners.size(); ++j) {
-            oss << "Player " << winners[j];
+            oss << players[winners[j]].name;    // <= zero-based
             if (j + 1 < winners.size()) oss << ", ";
         }
         oss << "; ";
@@ -490,7 +487,7 @@ void Game::checkWinners() {
     if (!draws.empty()) {
         oss << "Draw: ";
         for (size_t j = 0; j < draws.size(); ++j) {
-            oss << "Player " << draws[j];
+            oss << players[draws[j]].name;
             if (j + 1 < draws.size()) oss << ", ";
         }
         oss << "; ";
@@ -498,17 +495,18 @@ void Game::checkWinners() {
     if (!losers.empty()) {
         oss << "Lose: ";
         for (size_t j = 0; j < losers.size(); ++j) {
-            oss << "Player " << losers[j];
+            oss << players[losers[j]].name;
             if (j + 1 < losers.size()) oss << ", ";
         }
     }
     result = oss.str();
 
-    // Usuwamy graczy z 0 żetonów
-    auto it = std::remove_if(players.begin(), players.end(), [](PlayerInfo& p) {
+    // 1) Komunikat jest zbudowany, dopiero teraz usuwamy
+    auto it = std::remove_if(players.begin(), players.end(), [](const PlayerInfo& p) {
         return p.chips.getTotalChips() <= 0;
         });
     players.erase(it, players.end());
+
 
     // Jeżeli wszyscy gracze odpadli => pusta lista => koniec
     if (players.empty()) {
@@ -634,7 +632,7 @@ void Game::drawEnterNames(sf::RenderWindow& window) {
     const sf::Font& font = AssetManager::getInstance()->getFont("assets/fonts/arial.ttf");
 
     // Tytuł
-    sf::Text title("ENTER PLAYERS' NAMES", font, 50);
+    sf::Text title("Enter player's names", font, 50);
     title.setFillColor(sf::Color::White);
     title.setPosition(450.f, 100.f);
     window.draw(title);
