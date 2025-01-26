@@ -25,13 +25,15 @@ struct PlayerInfo {
     int currentBet;
     bool doubleDown;
     std::string name;
+    bool done;
 
     PlayerInfo(const std::string& defaultName)
         : player(defaultName), // wewnêtrznie klasa Player te¿ ma name, ale mo¿emy to zostawiæ
         chips(),
         currentBet(0),
         doubleDown(false),
-        name(defaultName)   // <-- przypisujemy domyœln¹ nazwê
+        name(defaultName),   // <-- przypisujemy domyœln¹ nazwê
+		done(false)
     {
     }
 };

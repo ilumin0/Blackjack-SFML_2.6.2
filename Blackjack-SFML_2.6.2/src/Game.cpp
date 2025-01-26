@@ -69,9 +69,15 @@ void Game::run() {
                         PlayerInfo& pInfo = players[currentPlayerIndex];
                         Player& currentPlayer = pInfo.player;
 
+                        if (pInfo.done) {
+                            break; // albo return, albo nic nie rób
+                        }
+
                         if (event.key.code == sf::Keyboard::H) {
                             currentPlayer.hit(deck);
-                            if (currentPlayer.isBusted()) {
+                            // Sprawdzamy, czy wartość ręki to 21 lub więcej:
+                            if (currentPlayer.isBusted() || currentPlayer.getHandValue() == 21) {
+                                pInfo.done = true;  // gracz kończy turę
                                 nextPlayer();
                             }
                         }
@@ -158,7 +164,7 @@ void Game::run() {
             if (!allBetsPlaced) {
                 if (currentBettingPlayerIndex < (int)players.size()) {
                     userMessage = players[currentBettingPlayerIndex].name
-                        + ", place your bet [1,2,3,4,5].";
+                        + ", place your bet [1 - 1$, 2 - 5$, 3 - 10$, 4 - 25$, 5 - 100$].";
                 }
             }
             else {
@@ -370,6 +376,7 @@ void Game::resetGame() {
         pInfo.player.reset();       // czyści karty
         pInfo.currentBet = 0;
         pInfo.doubleDown = false;
+        pInfo.done = false;
         // pInfo.chips pozostaje bez zmian
     }
 
@@ -410,7 +417,7 @@ void Game::placeBet(int amount) {
         }
         else {
             userMessage = players[currentBettingPlayerIndex].name
-                + ", place your bet [1,2,3,4,5].";
+                + ", place your bet [1 - 1$, 2 - 5$, 3 - 10$, 4 - 25$, 5 - 100$].";
         }
     }
     else {
@@ -421,22 +428,48 @@ void Game::placeBet(int amount) {
 
 // Rozdajemy karty każdemu + krupierowi
 void Game::dealInitialCards() {
+    // 1) Gracze
     for (auto& pInfo : players) {
         pInfo.player.hit(deck);
         pInfo.player.hit(deck);
+
+        // Jeśli gracz ma 2-kartowe 21 => done
+        if (pInfo.player.isBlackjack()) {
+            pInfo.done = true;
+        }
     }
+
+    // 2) Dealer
     dealer.hit(deck);
     dealer.hit(deck);
 
+    // 3) Sprawdzenie blackjacka krupiera
+    if (dealer.isBlackjack()) {
+        // Runda natychmiast się kończy
+        // Gracze, którzy też mają blackjack => push (bet wraca)
+        // Reszta => przegrywa (bet przepada)
+        for (auto& pInfo : players) {
+            if (pInfo.player.isBlackjack()) {
+                // push
+                pInfo.chips.addChips(pInfo.currentBet);
+            }
+            // else: lose => do nothing
+        }
+
+        userMessage = "Dealer has Blackjack! Press R to continue.";
+        gameOver = true;
+        return;
+    }
+
+    // 4) Jeśli dealer nie ma blackjack, przechodzimy do normalnej rozgrywki
     if (!players.empty()) {
-        // Bierzemy nazwę pierwszego gracza (indeks 0) 
         userMessage = players[0].name + ", [H]it, [S]tand, [D]oubleDown.";
     }
     else {
-        // Jeśli z jakiegoś powodu lista graczy jest pusta, na razie ustaw komunikat pusty
         userMessage = "";
     }
 }
+
 
 // Czy wszyscy gracze skończyli turę (Stand/Bust)?
 bool Game::allPlayersDone() const {
@@ -445,22 +478,28 @@ bool Game::allPlayersDone() const {
 
 // Przechodzimy do kolejnego gracza
 void Game::nextPlayer() {
-    currentPlayerIndex++;
+    do {
+        currentPlayerIndex++;
+    } while (currentPlayerIndex < players.size()
+        && players[currentPlayerIndex].done == true);
+
+    // Jeśli wszyscy done albo currentPlayerIndex >= players.size(),
+    // przechodzimy do stanu RevealDealerCard (lub DealerTurn).
     if (currentPlayerIndex >= players.size()) {
-        // Wszyscy gracze skończyli => przejście do tury krupiera
         currentState = State::RevealDealerCard;
     }
 }
+
 
 
 // Sprawdzamy zwycięzców
 void Game::checkWinners() {
     int dealerValue = dealer.getHandValue();
     bool dealerBust = (dealerValue > 21);
+    std::vector<int> blackjacks; // gracze z 2-kartowym 21
 
     std::vector<int> winners, losers, draws;
 
-    // Najpierw zbieramy zero-bazowe indeksy
     for (int i = 0; i < (int)players.size(); i++) {
         int pValue = players[i].player.getHandValue();
 
@@ -483,12 +522,43 @@ void Game::checkWinners() {
         }
     }
 
-    // Teraz budujemy komunikat, odwołując się do players[i].name
+    // 1) WYPŁACANIE WYGRANYCH/REMISÓW
+    for (int w : winners) {
+        bool hasBJ = (std::find(blackjacks.begin(), blackjacks.end(), w)
+            != blackjacks.end());
+        if (hasBJ) {
+            // 3:2 => 2.5 × stawka
+            int bet = players[w].currentBet;
+            int payout = bet + (int)(1.5f * bet); // 1.5 stawki zysku + bet
+            players[w].chips.addChips(payout);
+        }
+        else {
+            // Normalne 2× stawka
+            players[w].chips.addChips(players[w].currentBet * 2);
+        }
+    }
+
+    // 2) AKTUALIZACJA GLOBALNEGO LICZNIKA
+    for (int w : winners) {
+        scoreManager.addWin();
+    }
+    for (int d : draws) {
+        scoreManager.addDraw();
+    }
+    for (int l : losers) {
+        scoreManager.addLoss();
+    }
+
+    // 3) BUDUJEMY KOMUNIKAT
     std::ostringstream oss;
     if (!winners.empty()) {
         oss << "Won: ";
         for (size_t j = 0; j < winners.size(); ++j) {
-            oss << players[winners[j]].name;    // <= zero-based
+            bool bj = (std::find(blackjacks.begin(), blackjacks.end(), winners[j])
+                != blackjacks.end());
+
+            oss << players[winners[j]].name;
+            if (bj) oss << " (BJ)"; // dopisujemy w nawiasie
             if (j + 1 < winners.size()) oss << ", ";
         }
         oss << "; ";
@@ -510,19 +580,13 @@ void Game::checkWinners() {
     }
     result = oss.str();
 
-    // 1) Komunikat jest zbudowany, dopiero teraz usuwamy
+    // 4) Usuwamy graczy z 0 żetonów
     auto it = std::remove_if(players.begin(), players.end(), [](const PlayerInfo& p) {
         return p.chips.getTotalChips() <= 0;
         });
     players.erase(it, players.end());
-
-
-    // Jeżeli wszyscy gracze odpadli => pusta lista => koniec
-    if (players.empty()) {
-        // gameOver = true (i tak jest) 
-        // w run() -> "Press R to continue" -> gracze = 0 => ok
-    }
 }
+
 
 // =============================
 // =       Menu/Settings       =
