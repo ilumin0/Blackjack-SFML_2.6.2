@@ -538,6 +538,10 @@ void Game::checkWinners() {
         }
     }
 
+    for (int d : draws) {
+		players[d].chips.addChips(players[d].currentBet);
+	}
+
     // 2) AKTUALIZACJA GLOBALNEGO LICZNIKA
     for (int w : winners) {
         scoreManager.addWin();
